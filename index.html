@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PrivacyGuard AI</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --panel: #101a2d;
+        --text: #edf2ff;
+        --muted: #a7b6d9;
+        --accent: #4ea8ff;
+        --danger: #ff6b6b;
+        --success: #3fdd97;
+        --border: rgba(167, 182, 217, 0.22);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(180deg, #0b1020, #101a2d);
+        color: var(--text);
+      }
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 20px 60px;
+      }
+      .hero, .card {
+        background: rgba(16, 26, 45, 0.92);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+      }
+      .hero h1 { margin: 0 0 10px; font-size: clamp(2rem, 3vw, 3rem); }
+      .hero p { margin: 0; color: var(--muted); line-height: 1.6; }
+      .layout {
+        display: grid;
+        grid-template-columns: 1.3fr 0.7fr;
+        gap: 24px;
+      }
+      textarea, select, button {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+      }
+      textarea {
+        min-height: 220px;
+        padding: 14px;
+        background: rgba(5, 11, 22, 0.9);
+        color: var(--text);
+        resize: vertical;
+      }
+      select, button {
+        padding: 10px 12px;
+        background: rgba(5, 11, 22, 0.9);
+        color: var(--text);
+      }
+      button {
+        background: linear-gradient(135deg, #5cc7ff, #2c88ff);
+        color: #04111d;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .controls {
+        display: flex;
+        gap: 12px;
+        margin-top: 14px;
+        align-items: center;
+      }
+      .controls select { flex: 0 0 160px; }
+      .status {
+        margin-top: 14px;
+        min-height: 22px;
+        color: var(--muted);
+      }
+      .status.error { color: var(--danger); }
+      .status.success { color: var(--success); }
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 12px;
+        margin-top: 18px;
+      }
+      .metric {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        background: rgba(5, 11, 22, 0.8);
+      }
+      .metric small { display: block; color: var(--muted); margin-bottom: 4px; }
+      .metric strong { font-size: 1.5rem; }
+      .results-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      .box {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: rgba(5, 11, 22, 0.8);
+        padding: 14px;
+        white-space: pre-wrap;
+        min-height: 220px;
+      }
+      ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      li {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: rgba(5, 11, 22, 0.8);
+        padding: 12px;
+        margin-bottom: 10px;
+      }
+      @media (max-width: 800px) {
+        .layout, .results-grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <section class="hero">
+        <h1>PrivacyGuard AI</h1>
+        <p>Paste text to detect likely sensitive information and generate a safer redacted version.</p>
+      </section>
+
+      <section class="card">
+        <div class="layout">
+          <div>
+            <label for="textInput"><strong>Content to analyze</strong></label>
+            <textarea id="textInput">Contact John Doe at john.doe@example.com or +1 (555) 123-4567. My SSN is 123-45-6789 and my password is P@ssw0rd123!</textarea>
+            <div class="controls">
+              <select id="modeSelect">
+                <option value="mask">Mask</option>
+                <option value="redact">Redact</option>
+              </select>
+              <button id="analyzeBtn">Analyze text</button>
+            </div>
+            <div id="status" class="status"></div>
+          </div>
+          <div>
+            <h3>Detection summary</h3>
+            <div id="summary" class="summary"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="results" class="card" style="display:none;">
+        <div class="results-grid">
+          <div>
+            <h3>Original text</h3>
+            <div id="originalText" class="box"></div>
+          </div>
+          <div>
+            <h3>Protected output</h3>
+            <div id="redactedText" class="box"></div>
+          </div>
+        </div>
+
+        <div style="margin-top: 22px;">
+          <h3>Detected entities</h3>
+          <ul id="entityList"></ul>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const textInput = document.getElementById('textInput');
+      const modeSelect = document.getElementById('modeSelect');
+      const analyzeBtn = document.getElementById('analyzeBtn');
+      const statusEl = document.getElementById('status');
+      const summaryEl = document.getElementById('summary');
+      const resultsEl = document.getElementById('results');
+      const originalTextEl = document.getElementById('originalText');
+      const redactedTextEl = document.getElementById('redactedText');
+      const entityListEl = document.getElementById('entityList');
+
+      analyzeBtn.addEventListener('click', async () => {
+        const text = textInput.value.trim();
+        if (!text) {
+          statusEl.textContent = 'Please provide text to scan.';
+          statusEl.className = 'status error';
+          return;
+        }
+
+        statusEl.textContent = 'Analyzing…';
+        statusEl.className = 'status';
+        analyzeBtn.disabled = true;
+
+        try {
+          const response = await fetch('http://127.0.0.1:8000/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, mode: modeSelect.value })
+          });
+
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({ detail: 'Unable to analyze text.' }));
+            throw new Error(err.detail || 'Unable to analyze text.');
+          }
+
+          const result = await response.json();
+          const categories = result.summary.categories || {};
+          summaryEl.innerHTML = `
+            <div class="metric"><small>Total entities</small><strong>${result.summary.total_entities}</strong></div>
+            <div class="metric"><small>Risk level</small><strong>${result.summary.risk_level}</strong></div>
+            ${Object.entries(categories).map(([k, v]) => `<div class="metric"><small>${k}</small><strong>${v}</strong></div>`).join('')}
+          `;
+
+          originalTextEl.textContent = result.original_text;
+          redactedTextEl.textContent = result.redacted_text;
+          entityListEl.innerHTML = result.entities.map((entity) => `
+            <li>
+              <div><strong>${entity.label}</strong> • ${entity.category}</div>
+              <div>Value: ${entity.value}</div>
+              <div>Replacement: ${entity.replacement}</div>
+              <div>Severity: ${entity.severity}</div>
+              <div>Confidence: ${Math.round(entity.confidence * 100)}%</div>
+            </li>
+          `).join('');
+
+          resultsEl.style.display = 'block';
+          statusEl.textContent = 'Sensitive data review complete.';
+          statusEl.className = 'status success';
+        } catch (error) {
+          statusEl.textContent = error.message || 'Unexpected error.';
+          statusEl.className = 'status error';
+        } finally {
+          analyzeBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
